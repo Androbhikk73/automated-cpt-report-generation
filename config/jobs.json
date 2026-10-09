@@ -1,0 +1,38 @@
+{
+  "IDRPortal": {
+    "name_id": "IDRPortal",
+    "date_stamp_format": "%m%d%Y",
+    "scheduled_time": "23:25:00",
+    "scheduled_type": "Daily",
+    "export_file_mask": "IDRPortalExtract",
+    "export_file_extension": ".csv",
+    "table_id": "btu3b2iuj",
+    "staging_folder_path": "D:\\Python\\cpt_report_kousik\\QuickBase_Export\\Staging\\IDRPortal",
+    "destination_file_mask": "IDR Portal Extract ",
+    "destination_folder_path": "D:\\Python\\cpt_report_kousik\\QuickBase_Export\\Destination\\IDRPortal"
+  },
+  "BriefsAutomation": {
+    "name_id": "BriefsAutomation",
+    "date_stamp_format": "%m%d%Y",
+    "scheduled_time": "14:48:00",
+    "scheduled_type": "Daily",
+    "export_file_mask": "BriefsAutomation",
+    "export_file_extension": ".csv",
+    "table_id": "bt699r25q",
+    "staging_folder_path": "D:\\Python\\cpt_report_kousik\\QuickBase_Export\\Staging\\BriefsAutomation",
+    "destination_file_mask": "Generate Federal Briefs Extract ",
+    "destination_folder_path": "D:\\Python\\cpt_report_kousik\\QuickBase_Export\\Destination\\BriefsAutomation"
+  },
+  "CPTLevelRpt": {
+    "name_id": "CPTLevelRpt",
+    "date_stamp_format": "%Y%m%d",
+    "scheduled_time": "00:11:00",
+    "scheduled_type": "Daily",
+    "export_file_mask": "CPTLevelRpt",
+    "export_file_extension": ".csv",
+    "table_id": "bt699r25q",
+    "staging_folder_path": "D:\\Python\\cpt_report_kousik\\QuickBase_Export\\Staging\\CPTLevelRpt",
+    "destination_file_mask": "CPTLevelRpt_",
+    "destination_folder_path": "D:\\Python\\cpt_report_kousik\\QuickBase_Export\\Destination\\CPTLevelRpt"
+  }
+}
