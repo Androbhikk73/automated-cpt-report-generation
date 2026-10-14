@@ -2,10 +2,11 @@ import os
 import csv
 import logging
 import requests
+from typing import Dict, Optional
 from dotenv import load_dotenv
 
-def API_Extract(job_name: str, destination_path: str, table_id: str, clist: str, where_clause: str) -> None:
-    load_dotenv()
+def API_Extract(job_name: str, destination_path: str, table_id: str, clist: str, where_clause: str, field_labels: Optional[Dict[str, str]] = None, sort_by: Optional[int] = None, header_only_when_empty: bool = True) -> None:
+    load_dotenv(override = True)
 
     realm_hostname = os.environ.get("QB_REALM_HOSTNAME") or os.getenv("QB_REALM_HOSTNAME") or ""
     user_token = os.environ.get("QB_USER_TOKEN") or os.getenv("QB_USER_TOKEN") or ""
@@ -40,6 +41,9 @@ def API_Extract(job_name: str, destination_path: str, table_id: str, clist: str,
             }
         }
 
+        if sort_by is not None:
+            payload["sortBy"] = [{"fieldId": int(sort_by), "order": "ASC"}]
+
         response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
         response_json = response.json()
@@ -62,16 +66,24 @@ def API_Extract(job_name: str, destination_path: str, table_id: str, clist: str,
 
         skip += num_records
 
-    # Write to CSV
+    if not all_records and not header_only_when_empty:
+        logging.info(f"[{job_name}] No records found and header_only_when_empty is False. Skipping file creation.")
+        return
+
     logging.info(f"[{job_name}] Total records extracted: {len(all_records)}. Writing to {destination_path}")
 
+    # Determine column order and headers from YAML mapping (or fallback to QB metadata)
+    if field_labels:
+        field_ids = list(field_labels.keys())
+        header_row = [field_labels[fid] for fid in field_ids]
+    else:
+        field_ids = [str(field.get("id")) for field in field_metadata]
+        header_row = [field.get("label", f"Field_{field.get('id')}") for field in field_metadata]
+
+    # Write to CSV
     with open(destination_path, mode="w", newline="", encoding="utf-8") as csv_file:
         writer = csv.writer(csv_file)
-
-        header_row = [field.get("label", f"Field_{field.get('id')}") for field in field_metadata]
         writer.writerow(header_row)
-
-        field_ids = [str(field.get("id")) for field in field_metadata]
 
         for record in all_records:
             row = []

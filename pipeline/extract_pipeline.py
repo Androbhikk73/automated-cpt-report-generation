@@ -12,6 +12,7 @@ class QuickBaseExtractPipeline:
         self.recipients_success = "kousik.kayal@usap.com"
         self.recipients_failure = "kousik.kayal@usap.com"
 
+
     def _determine_execution_time(self) -> datetime:
         now = datetime.now()
         if self.schedule_time_str == "0":
@@ -26,11 +27,21 @@ class QuickBaseExtractPipeline:
             microsecond = 0
         )
 
+
     def get_scheduled_jobs(self) -> List[JobConfig]:
+        # If schedule_time_str is "0", run all registered jobs on-demand
+        if self.schedule_time_str == "0":
+            return list(self.jobs_registry.values())
+        
         current_time = self._determine_execution_time()
         matched_jobs = []
 
         for job in self.jobs_registry.values():
+            # If the YAML has `schedule: {}` (empty), run it when no specific schedule is set
+            if not job.scheduled_time:
+                matched_jobs.append(job)
+                continue
+
             parsed_job_time = datetime.strptime(job.scheduled_time, "%H:%M:%S")
             job_target_time = current_time.replace(
                 hour = parsed_job_time.hour,
@@ -42,6 +53,7 @@ class QuickBaseExtractPipeline:
                 matched_jobs.append(job)
 
         return matched_jobs
+
 
     def run(self):
         matched_jobs = self.get_scheduled_jobs()

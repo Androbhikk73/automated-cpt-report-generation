@@ -3,7 +3,8 @@ import logging
 from pathlib import Path
 
 def setup_logger():
-    log_dir = Path(r"D:\Python\cpt_report_kousik\logs")
+    base_dir = Path(__file__).resolve().parent.parent
+    log_dir = base_dir / "logs"
     log_dir.mkdir(parents = True, exist_ok = True)
     os.chdir(log_dir)
 

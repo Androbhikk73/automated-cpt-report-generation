@@ -1,39 +1,86 @@
-import json
+import re
+import yaml
 from pathlib import Path
 from typing import Dict
 from config.job_config import JobConfig
 
-def load_merged_registry(schedule_path: Path, qb_config_path: Path) -> Dict[str, JobConfig]:
+def _parse_file_pattern(file_name_pattern: str):
+    path_obj = Path(file_name_pattern)
+    ext = path_obj.suffix
+    stem = path_obj.stem
+    match = re.search(r"<([^>]+)>", stem)
+
+    if match:
+        token = match.group(1)
+        py_fmt = token.replace("yyyy", "%Y").replace("MM", "%m").replace("dd", "%d")
+        mask = stem[:match.start()]
+    else:
+        py_fmt = "%Y%m%d"
+        mask = stem
+
+    return mask, py_fmt, ext
+
+
+def load_merged_registry(job_yaml_path: Path, overlay_yaml_path: Path) -> Dict[str, JobConfig]:
     # Load Scheduling & Path Data
-    if not schedule_path.exists():
-        raise FileNotFoundError(f"Config file not found at: {schedule_path}")
+    if not job_yaml_path.exists():
+        raise FileNotFoundError(f"Config file not found at: {job_yaml_path}")
+    
+    if not overlay_yaml_path.exists():
+        raise FileNotFoundError(f"Overlay file not found at: {overlay_yaml_path}")
 
-    with open(schedule_path, "r", encoding="utf-8") as f:
-        schedule_data = json.load(f) or {}
+    with open(job_yaml_path, "r", encoding="utf-8") as f:
+        job_data = yaml.safe_load(f) or {}
+    
+    with open(overlay_yaml_path, "r", encoding="utf-8") as f:
+        overlay_data = yaml.safe_load(f) or {}
 
-    # Load QuickBase Query Data
-    qb_data_lookup = {}
-    if qb_config_path.exists():
-        with open(qb_config_path, "r", encoding="utf-8") as f:
-            qb_raw = json.load(f)
-            for table in qb_raw.get("tables", []):
-                qb_data_lookup[table["job_name"]] = table
+    job_name = job_data.get("job", "DEFAULT_JOB")
+    source = job_data.get("source", {})
+    output = job_data.get("output", {})
+    transforms = job_data.get("transforms", [])
+    schedule = job_data.get("schedule", {}) or {}
 
-    # Merge configurations
-    registry = {}
-    for job_key, job_params in schedule_data.items():
-        qb_params = qb_data_lookup.get(job_key, {})
-        where_clause = qb_params.get("where_clause")
-        if "table_id" in qb_params:
-            job_params["table_id"] = qb_params["table_id"]
-            job_params["where_clause"] = where_clause
-            job_params["field_labels"] = qb_params.get("field_labels", {})
+    # Parse file mask and date format from "CPTLevelRpt_<yyyyMMdd>.csv"
+    file_name_pattern = output.get("file_name", f"{job_name}_<yyyyMMdd>.csv")
+    mask, date_fmt, ext = _parse_file_pattern(file_name_pattern)
 
-        registry[job_key] = JobConfig(**job_params)
+    # Map field IDs to target CSV column headers in exact order
+    columns = output.get("columns", [])
+    field_labels = {str(col["field"]): col["header"] for col in columns}
+    
+    # Fallback if source.fields is specified without output.columns
+    if not field_labels and "fields" in source:
+        field_labels = {str(fid): f"Field_{fid}" for fid in source["fields"]}
 
-    return registry
+    drop_location = overlay_data.get("drop_location", "./output")
+    staging_location = str(Path(drop_location) / "staging")
 
-CONFIG_DIR = Path(__file__).parent
-SCHEDULE_PATH = CONFIG_DIR / "jobs.json"
-QB_CONFIG_PATH = CONFIG_DIR / "config.json"
-JOBS_REGISTRY: Dict[str, JobConfig] = load_merged_registry(SCHEDULE_PATH, QB_CONFIG_PATH)
+    config = JobConfig(
+        name_id=job_name,
+        date_stamp_format=date_fmt,
+        scheduled_time=schedule.get("time", ""),
+        scheduled_type=schedule.get("type", "OnDemand"),
+        export_file_mask=mask,
+        export_file_extension=ext,
+        staging_folder_path=staging_location,
+        destination_file_mask=mask,
+        destination_folder_path=drop_location,
+        table_id=overlay_data.get("table_id"),
+        app_id=overlay_data.get("app_id"),
+        where_clause=source.get("filter"),
+        sort_by=source.get("sort_by"),
+        field_labels=field_labels,
+        transforms=transforms,
+        header_only_when_empty=output.get("header_only_when_empty", True)
+    )
+
+    return {job_name: config}
+   
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+JOBS_DIR = BASE_DIR / "jobs"
+CPT_YAML_PATH = JOBS_DIR / "cpt_config.yml"
+OVERLAYS_YAML_PATH = JOBS_DIR / "overlays.yml"
+
+JOBS_REGISTRY: Dict[str, JobConfig] = load_merged_registry(CPT_YAML_PATH, OVERLAYS_YAML_PATH)

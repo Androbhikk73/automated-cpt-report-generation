@@ -5,14 +5,8 @@ from pipeline.extract_pipeline import QuickBaseExtractPipeline
 from utils.logger import setup_logger
 
 def main():
-    if len(sys.argv) < 3:
-        print("Usage: python main.py  ")
-        print("Example: python main.py DEV 0")
-        print("Example: python main.py PROD 11:25:00")
-        sys.exit(1)
-
-    env = sys.argv[1].upper()
-    sched_time = sys.argv[2]
+    env = sys.argv[1].upper() if len(sys.argv) > 1 else "DEV"
+    sched_time = sys.argv[2] if len(sys.argv) > 2 else "0"
 
     setup_logger()
     logging.info(f"Starting QuickBase pipeline execution | Environment: {env} | Schedule Time: {sched_time}")
