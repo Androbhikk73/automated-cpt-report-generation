@@ -3,7 +3,7 @@ source:
   kind: query
   table: Athena CPT-Level Changes
   filter: "{19.EX.'<run date minus 1>'}" # yesterday's changes (19 = Date_Triggered)
-  fields: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+  fields: [3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
   sort_by: 3 # Record ID#, keeps paging stable
 transforms: # same cleanups as EDW, in this order
   - comma_lists_to_semicolons

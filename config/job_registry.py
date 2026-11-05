@@ -8,8 +8,8 @@ def _parse_file_pattern(file_name_pattern: str):
     path_obj = Path(file_name_pattern)
     ext = path_obj.suffix
     stem = path_obj.stem
-    match = re.search(r"<([^>]+)>", stem)
 
+    match = re.search(r"<([^>]+)>", stem)
     if match:
         token = match.group(1)
         py_fmt = token.replace("yyyy", "%Y").replace("MM", "%m").replace("dd", "%d")
@@ -20,18 +20,15 @@ def _parse_file_pattern(file_name_pattern: str):
 
     return mask, py_fmt, ext
 
-
-def load_merged_registry(job_yaml_path: Path, overlay_yaml_path: Path) -> Dict[str, JobConfig]:
-    # Load Scheduling & Path Data
+def load_yaml_registry(job_yaml_path: Path, overlay_yaml_path: Path) -> Dict[str, JobConfig]:
     if not job_yaml_path.exists():
-        raise FileNotFoundError(f"Config file not found at: {job_yaml_path}")
-    
+        raise FileNotFoundError(f"Job YAML config not found at: {job_yaml_path}")
     if not overlay_yaml_path.exists():
-        raise FileNotFoundError(f"Overlay file not found at: {overlay_yaml_path}")
+        raise FileNotFoundError(f"Overlay YAML config not found at: {overlay_yaml_path}")
 
     with open(job_yaml_path, "r", encoding="utf-8") as f:
         job_data = yaml.safe_load(f) or {}
-    
+
     with open(overlay_yaml_path, "r", encoding="utf-8") as f:
         overlay_data = yaml.safe_load(f) or {}
 
@@ -41,20 +38,19 @@ def load_merged_registry(job_yaml_path: Path, overlay_yaml_path: Path) -> Dict[s
     transforms = job_data.get("transforms", [])
     schedule = job_data.get("schedule", {}) or {}
 
-    # Parse file mask and date format from "CPTLevelRpt_<yyyyMMdd>.csv"
     file_name_pattern = output.get("file_name", f"{job_name}_<yyyyMMdd>.csv")
     mask, date_fmt, ext = _parse_file_pattern(file_name_pattern)
 
-    # Map field IDs to target CSV column headers in exact order
     columns = output.get("columns", [])
     field_labels = {str(col["field"]): col["header"] for col in columns}
-    
-    # Fallback if source.fields is specified without output.columns
-    if not field_labels and "fields" in source:
-        field_labels = {str(fid): f"Field_{fid}" for fid in source["fields"]}
+
+    # Ensure fields 3 and 6-18 are selected as required
+    raw_fields = source.get("fields", [3, *range(6, 19)])
+    select_fields = [int(fid) for fid in raw_fields]
+    if 3 not in select_fields:
+        select_fields.insert(0, 3)
 
     drop_location = overlay_data.get("drop_location", "./output")
-    staging_location = str(Path(drop_location) / "staging")
 
     config = JobConfig(
         name_id=job_name,
@@ -63,24 +59,23 @@ def load_merged_registry(job_yaml_path: Path, overlay_yaml_path: Path) -> Dict[s
         scheduled_type=schedule.get("type", "OnDemand"),
         export_file_mask=mask,
         export_file_extension=ext,
-        staging_folder_path=staging_location,
         destination_file_mask=mask,
         destination_folder_path=drop_location,
         table_id=overlay_data.get("table_id"),
         app_id=overlay_data.get("app_id"),
         where_clause=source.get("filter"),
-        sort_by=source.get("sort_by"),
+        sort_by=int(source.get("sort_by", 3)),
+        select_fields=select_fields,
         field_labels=field_labels,
         transforms=transforms,
         header_only_when_empty=output.get("header_only_when_empty", True)
     )
 
     return {job_name: config}
-   
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 JOBS_DIR = BASE_DIR / "jobs"
 CPT_YAML_PATH = JOBS_DIR / "cpt_config.yml"
 OVERLAYS_YAML_PATH = JOBS_DIR / "overlays.yml"
 
-JOBS_REGISTRY: Dict[str, JobConfig] = load_merged_registry(CPT_YAML_PATH, OVERLAYS_YAML_PATH)
+JOBS_REGISTRY: Dict[str, JobConfig] = load_yaml_registry(CPT_YAML_PATH, OVERLAYS_YAML_PATH)

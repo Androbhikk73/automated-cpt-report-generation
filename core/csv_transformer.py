@@ -6,7 +6,7 @@ from typing import Optional, List
 class CSVTransformer:
     @staticmethod
     def clean_text_values(value: str, transforms: Optional[List[str]] = None) -> str:
-        if not transforms:
+        if transforms is None:
             transforms = [
                 "comma_lists_to_semicolons",
                 "strip_brackets_and_quotes",
@@ -17,12 +17,10 @@ class CSVTransformer:
         for step in transforms:
             if step == "comma_lists_to_semicolons":
                 cleaned = re.sub(r"'\s*,\s*'", ";", cleaned)
-                cleaned = re.sub(r'"\s*,\s*"', ";", cleaned)
             elif step == "strip_brackets_and_quotes":
-                cleaned = cleaned.replace("[", "").replace("]", "").replace("'", "").replace('"', "")
+                cleaned = cleaned.replace("[", "").replace("]", "").replace("'", "")
             elif step == "collapse_semicolons":
-                cleaned = re.sub(r";(?:\s*;)+", ";", cleaned)
-                cleaned = cleaned.strip(";")
+                cleaned = re.sub(r";\s*;", "", cleaned)
 
         return cleaned
 
